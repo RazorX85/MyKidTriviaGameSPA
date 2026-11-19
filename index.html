@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#7b5cff">
+  <title>Trivia Curiosa</title>
+  <meta name="description" content="Juego de trivia para niños en español e inglés.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦉</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="src/styles.css">
+</head>
+<body>
+  <div class="sky" aria-hidden="true">
+    <span>⭐</span><span>☁️</span><span>🪐</span><span>✨</span><span>☁️</span><span>🌈</span>
+  </div>
+  <header class="topbar">
+    <button class="pill" id="homeBtn" hidden></button>
+    <div class="spacer"></div>
+    <button class="pill" id="soundBtn" aria-pressed="true"></button>
+    <div class="lang" role="group" id="langGroup">
+      <button data-lang="es" class="flag">Español</button>
+      <button data-lang="en" class="flag">English</button>
+    </div>
+  </header>
+  <main id="app" aria-live="polite"></main>
+  <noscript>Este juego necesita JavaScript. / This game needs JavaScript.</noscript>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
