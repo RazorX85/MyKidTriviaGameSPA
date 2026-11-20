@@ -1,5 +1,5 @@
 import { UI, SPEECH_LANG, otherLang } from './i18n.js';
-import { AGE_BANDS, DEFAULT_AGE_BAND, CATEGORIES, bandById, buildRound, eligibleQuestions, starsFor } from './quiz.js';
+import { AGE_BANDS, DEFAULT_AGE_BAND, CATEGORIES, ROUND_LENGTH_OPTIONS, bandById, buildRound, eligibleQuestions, normalizeRoundLength, pointsFor, starsFor } from './quiz.js';
 import { sounds, confetti, speak } from './effects.js';
 
 const CATEGORY_LOOK = {
@@ -22,6 +22,10 @@ const state = {
   band: store.get('band', DEFAULT_AGE_BAND),
   category: 'all',
   sound: store.get('sound', true),
+  roundLength: normalizeRoundLength(store.get('roundLength', 10)),
+  points: 0,
+  lastGain: 0,
+  returnTo: 'home',
   questions: [],
   round: [],
   index: 0,
@@ -50,11 +54,17 @@ function el(tag, attrs = {}, ...children) {
   return node;
 }
 
-function visual(media, cls, alt) {
-  if (media && media.image && media.image.src) {
-    return el('img', { class: cls + ' pic', src: media.image.src, alt: tx(media.image.alt) || alt || '', loading: 'lazy' });
-  }
+function emojiVisual(media, cls) {
   return el('span', { class: cls, 'aria-hidden': 'true' }, (media && media.emoji) || '❓');
+}
+
+function visual(media, cls, alt) {
+  if (!(media && media.image && media.image.src)) return emojiVisual(media, cls);
+  const img = el('img', { class: cls + ' pic', src: media.image.src, alt: tx(media.image.alt) || alt || '', referrerpolicy: 'no-referrer', decoding: 'async' });
+  // If the picture can't load (offline, moved), fall back to the emoji.
+  img.addEventListener('error', () => img.closest('figure') ? img.closest('figure').replaceWith(emojiVisual(media, cls)) : img.replaceWith(emojiVisual(media, cls)));
+  if (!media.image.credit) return img;
+  return el('figure', { class: 'pic-frame' }, img, el('figcaption', { class: 'credit' }, '📷 ' + media.image.credit + (media.image.license ? ' · ' + media.image.license : '')));
 }
 
 // ---- top bar ----
@@ -69,6 +79,10 @@ function renderChrome() {
   snd.replaceChildren(state.sound ? '🔊 ' : '🔇 ', el('span', { class: 'lbl' }, t().sound));
   snd.setAttribute('aria-label', t().sound);
   snd.setAttribute('aria-pressed', String(state.sound));
+  const cfg = document.getElementById('settingsBtn');
+  cfg.replaceChildren('⚙️ ', el('span', { class: 'lbl' }, t().settings));
+  cfg.setAttribute('aria-label', t().settings);
+  cfg.hidden = state.screen === 'settings';
   for (const b of document.querySelectorAll('#langGroup button')) b.classList.toggle('on', b.dataset.lang === state.lang);
 }
 
@@ -86,6 +100,13 @@ document.getElementById('soundBtn').addEventListener('click', () => {
   render();
 });
 document.getElementById('homeBtn').addEventListener('click', () => { state.screen = 'home'; render(); });
+document.getElementById('settingsBtn').addEventListener('click', () => {
+  // Opening settings mid-round would lose the round, so remember where we were.
+  state.returnTo = state.screen;
+  state.screen = 'settings';
+  play('tap');
+  render();
+});
 
 // ---- screens ----
 function homeScreen() {
@@ -120,10 +141,12 @@ function homeScreen() {
 
 function startRound() {
   const band = bandById(state.band);
-  state.round = buildRound(state.questions, { band, category: state.category });
+  state.round = buildRound(state.questions, { band, category: state.category, length: state.roundLength });
   if (!state.round.length) return;
   state.index = 0;
   state.score = 0;
+  state.points = 0;
+  state.lastGain = 0;
   state.choice = null;
   state.celebrated = false;
   state.screen = 'question';
@@ -152,6 +175,7 @@ function questionScreen() {
   );
 
   return el('section', { class: 'screen quiz', style: `--tone:${look.color}` },
+    scoreboard(),
     el('div', { class: 'progress', role: 'progressbar', 'aria-valuemin': 0, 'aria-valuemax': total, 'aria-valuenow': state.index + 1 },
       el('div', { class: 'progress-label' }, `${look.emoji} ${t().categories[q.category]} · ${t().question} ${state.index + 1} ${t().of} ${total}`),
       el('div', { class: 'dots' }, state.round.map((_, i) => el('i', { class: i < state.index ? 'done' : i === state.index ? 'now' : '' }))),
@@ -176,6 +200,8 @@ function choose(id) {
   state.choice = id;
   const ok = id === q.correctAnswerId;
   if (ok) state.score++;
+  state.lastGain = ok ? pointsFor(q) : 0;
+  state.points += state.lastGain;
   state.cheer = Math.floor(Math.random() * 100);
   play(ok ? 'correct' : 'wrong');
   if (ok) confetti(50);
@@ -185,6 +211,14 @@ function choose(id) {
   fb.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
+function scoreboard() {
+  const gained = state.choice && state.lastGain;
+  return el('div', { class: 'scoreboard', role: 'status', 'aria-label': t().pointsLabel(state.points) },
+    el('span', { class: 'score-pill' + (gained ? ' bump' : '') }, '🏆 ', el('b', {}, state.points.toLocaleString(state.lang)), ' ', t().pts),
+    gained ? el('span', { class: 'gain', 'aria-hidden': 'true' }, `+${state.lastGain}`) : null,
+  );
+}
+
 function feedback(q) {
   const ok = state.choice === q.correctAnswerId;
   const right = q.answers.find((a) => a.id === q.correctAnswerId);
@@ -192,7 +226,7 @@ function feedback(q) {
   const last = state.index === state.round.length - 1;
   return el('div', { class: 'feedback ' + (ok ? 'ok' : 'ko') },
     el('div', { class: 'fb-head' }, (ok ? '🎉 ' : '💪 ') + (ok ? t().correct : t().wrong)[state.cheer % (ok ? t().correct : t().wrong).length]),
-    ok ? null : el('p', {}, t().rightAnswerWas + ' ', el('b', {}, tx(right.text))),
+    ok ? el('p', { class: 'earned' }, t().earned(state.lastGain)) : el('p', {}, t().rightAnswerWas + ' ', el('b', {}, tx(right.text))),
     q.funFact ? el('p', { class: 'fact' }, el('b', {}, '💡 ' + t().funFact + ' '), tx(q.funFact)) : null,
     q.vocabulary && q.vocabulary.length ? el('div', { class: 'vocab' },
       el('span', { class: 'vocab-title' }, '🔤 ' + t().englishWords + ':'),
@@ -207,6 +241,7 @@ function next() {
   if (state.index < state.round.length - 1) {
     state.index++;
     state.choice = null;
+    state.lastGain = 0;
     render();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   } else {
@@ -227,6 +262,7 @@ function resultScreen() {
     el('h1', { class: 'title' }, t().resultTitle),
     el('div', { class: 'stars', 'aria-label': `${stars}/3` }, [0, 1, 2].map((i) => el('span', { class: i < stars ? 'lit' : '', style: `animation-delay:${i * 0.2}s` }, '⭐'))),
     el('p', { class: 'score' }, t().resultScore(state.score, total)),
+    el('p', { class: 'points-total' }, '🏆 ', el('b', {}, state.points.toLocaleString(state.lang)), ' ', t().pts),
     el('p', { class: 'subtitle' }, t().resultMsg[stars]),
     el('div', { class: 'row' },
       el('button', { class: 'big-btn start', onclick: startRound }, '🔁 ' + t().playAgain),
@@ -235,10 +271,34 @@ function resultScreen() {
   );
 }
 
+function settingsScreen() {
+  const band = bandById(state.band);
+  const available = eligibleQuestions(state.questions, { band, category: state.category }).length;
+  const back = () => { state.screen = state.returnTo === 'settings' ? 'home' : state.returnTo; play('tap'); render(); };
+  return el('section', { class: 'screen settings' },
+    el('div', { class: 'mascot small', 'aria-hidden': 'true' }, '⚙️'),
+    el('h1', { class: 'title' }, t().settings),
+    el('div', { class: 'card setting' },
+      el('h2', {}, t().howMany),
+      el('div', { class: 'choices', role: 'group', 'aria-label': t().howMany },
+        ROUND_LENGTH_OPTIONS.map((n) => el('button', {
+          class: 'choice' + (n === state.roundLength ? ' on' : ''),
+          'aria-pressed': String(n === state.roundLength),
+          onclick: () => { state.roundLength = n; store.set('roundLength', n); play('tap'); render(); },
+        }, String(n))),
+      ),
+      available < state.roundLength ? el('p', { class: 'note' }, t().fewerAvailable(available)) : null,
+      el('p', { class: 'note' }, t().pointsInfo),
+    ),
+    el('button', { class: 'big-btn next', onclick: back }, '✅ ' + t().done),
+  );
+}
+
 function render() {
   renderChrome();
   if (window.speechSynthesis) window.speechSynthesis.cancel();
-  const screen = state.screen === 'question' ? questionScreen() : state.screen === 'result' ? resultScreen() : homeScreen();
+  const screens = { question: questionScreen, result: resultScreen, settings: settingsScreen };
+  const screen = (screens[state.screen] || homeScreen)();
   app.replaceChildren(screen);
 }
 

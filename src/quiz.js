@@ -15,6 +15,19 @@ export const DEFAULT_AGE_BAND = '6-7';
 export const FRESHNESS_WINDOW_YEARS = 2;
 
 export const ROUND_LENGTH = 10;
+export const ROUND_LENGTH_OPTIONS = [5, 10, 15, 20];
+
+// Every question is worth 100 points for now. A question can carry its own
+// `points` later, once scores are tuned to difficulty.
+export const DEFAULT_POINTS = 100;
+
+export function pointsFor(question) {
+  return Number.isInteger(question.points) && question.points > 0 ? question.points : DEFAULT_POINTS;
+}
+
+export function normalizeRoundLength(n) {
+  return ROUND_LENGTH_OPTIONS.includes(n) ? n : ROUND_LENGTH;
+}
 
 export function bandById(id) {
   return AGE_BANDS.find((b) => b.id === id) || AGE_BANDS.find((b) => b.id === DEFAULT_AGE_BAND);
