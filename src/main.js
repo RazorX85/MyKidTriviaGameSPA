@@ -136,6 +136,10 @@ function homeScreen() {
     ),
     el('button', { class: 'big-btn start', onclick: startRound, disabled: counts[state.category] === 0 }, '🚀 ' + t().start),
     counts[state.category] === 0 ? el('p', { class: 'note' }, t().notEnough) : null,
+    el('footer', { class: 'brand' },
+      el('span', {}, t().madeBy),
+      el('img', { src: 'public/brand/razor-logo.svg', alt: 'RaZoR', width: '56', height: '56', decoding: 'async' }),
+    ),
   );
 }
 

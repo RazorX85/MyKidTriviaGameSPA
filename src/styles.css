@@ -198,6 +198,10 @@ h2 { font-size: 1.35rem; margin: 18px 0 10px; }
 /* ---- pictures ---- */
 .pic-frame { margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .q-emoji.pic { width: min(320px, 78vw); max-height: 220px; object-fit: cover; border-radius: 18px; background: #f1edff; box-shadow: 0 4px 0 rgba(43, 34, 80, 0.12); }
+/* small maker's mark under the play button */
+.brand { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 28px 0 8px; font-size: 0.85rem; color: var(--ink-soft); opacity: 0.85; }
+.brand img { width: 56px; height: 56px; border-radius: 12px; box-shadow: 0 3px 0 rgba(43, 34, 80, 0.15); }
+
 .credit { font-size: 0.72rem; color: var(--ink-soft); max-width: min(320px, 78vw); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ---- settings ---- */

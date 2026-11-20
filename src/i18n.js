@@ -3,6 +3,7 @@ export const UI = {
   es: {
     title: '¡Trivia Curiosa!',
     subtitle: '¿Cuánto sabes? ¡Vamos a descubrirlo!',
+    madeBy: 'Un juego de',
     chooseAge: '¿Cuántos años tienes?',
     years: 'años',
     chooseTopic: 'Elige un tema',
@@ -42,6 +43,7 @@ export const UI = {
   en: {
     title: 'Curious Trivia!',
     subtitle: 'How much do you know? Let\'s find out!',
+    madeBy: 'A game by',
     chooseAge: 'How old are you?',
     years: 'years',
     chooseTopic: 'Pick a topic',
